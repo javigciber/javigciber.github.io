@@ -70,12 +70,12 @@ article figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
 var WRITEUPS = [
 {
  id:"laboratorio-enrutado-vlan", date:"2026-05-25", category:"Laboratorios",
- title:"Segmentación de red con VLAN y enrutado entre MikroTik, con prácticas de ataque y detección",
+ title:"Prácticas de ataque y detección",
  summary:"Red enrutada y segmentada con dos MikroTik, un switch D-Link, un servidor Fedora, Kali y una Raspberry Pi; incluye explotación, pivoting, mapeo de puertos y detección con Snort.",
- tags:["MikroTik","VLAN 802.1Q","Firewall","Metasploit","Nmap","Hydra","Snort"],
+ tags:["MikroTik","Raspberry","kali","VLAN 802.1Q","Firewall","Metasploit","Nmap","Hydra","Snort"],
  content:[
 "## Objetivo",
-"Montar desde cero una red segmentada en VLAN, con enrutamiento entre varios equipos MikroTik y un servidor Linux como puerta de enlace, y usarla para practicar tanto ataque (explotación, pivoting, escaneo) como defensa (firewall, IDS). Laboratorio realizado en el curso de especialización en Ciberseguridad en entornos de las tecnologías de operación (OT), módulo Sistemas de Control Industrial Seguros, mayo de 2026.",
+"Montar desde cero una red con enrutamiento entre varios equipos MikroTik y un servidor Fedora36 como puerta de enlace, y usarla para practicar tanto ataque (explotación, pivoting, escaneo) como defensa (firewall, IDS). Laboratorio realizado en el curso de especialización en Ciberseguridad en entornos de las tecnologías de operación (OT), módulo Sistemas de Control Industrial Seguros, mayo de 2026.",
 "## Equipos y topología",
 "- **Servidor Fedora 36:** puerta de enlace a internet y servidor DHCP. Dos interfaces: una externa con IP por DHCP (zona firewalld `external`, con enmascaramiento/NAT activado) y una interna en 192.168.12.1/24 (zona `internal`, objetivo ACCEPT), hacia el router 1.",
 "- **Router 1 (MikroTik):** conecta con el Fedora por `ether1` y agrupa el resto de interfaces (ether2-4 y wlan1) en un bridge propio, con su DHCP y acceso WiFi.",
@@ -184,7 +184,7 @@ var WRITEUPS = [
 "- Sesión de meterpreter obtenida sobre la Raspberry mediante una carga ejecutada en el propio objetivo.",
 "- Snort, con dos reglas propias, detectó correctamente el tráfico ICMP y los intentos de conexión SSH generados durante la prueba con Hydra.",
 "## Lecciones aprendidas",
-"- Mantener los servicios actualizados reduce de forma real la superficie de ataque: fue el motivo concreto por el que no se pudo explotar vsftpd.",
+"- Mantener los servicios actualizados reduce de forma real la superficie de ataque, aunque no es una medida suficiente por si sola.",
 "- Separar la red en VLAN y ordenar las reglas de firewall por listas de interfaces hace el diseño mucho más legible y fácil de auditar que tener reglas sueltas por IP.",
 "- El orden de las reglas de firewall importa tanto como su contenido: el aislamiento entre VLAN no vino de una regla explícita de bloqueo VLAN↔VLAN, sino de dejar sin cubrir ese tráfico antes del drop final.",
 "- Un IDS como Snort solo detecta lo que se le indica en sus reglas: sin la regla personalizada para el puerto 22, los intentos de SSH habrían pasado desapercibidos.",
