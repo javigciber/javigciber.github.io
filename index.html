@@ -59,11 +59,6 @@ a{color:inherit}
 .hero h1{margin:0;font-size:clamp(2.1rem,6vw,3.6rem);line-height:1.08;letter-spacing:-.03em;font-weight:800;
   background:linear-gradient(100deg,var(--text) 30%,var(--accent) 70%,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero .sub{margin:14px 0 0;max-width:640px;color:var(--muted);font-size:1.08rem}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:30px;max-width:640px}
-.stat{background:color-mix(in srgb,var(--surface) 82%,transparent);border:1px solid var(--line);border-radius:14px;padding:14px 16px;backdrop-filter:blur(6px)}
-.stat b{display:block;font-size:1.8rem;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums;
-  background:linear-gradient(120deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.stat span{display:block;font-size:.78rem;line-height:1.35;margin-top:4px;color:var(--muted);font-family:var(--mono)}
 
 /* filtros */
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 22px}
@@ -154,7 +149,7 @@ footer{max-width:1120px;margin:0 auto;padding:26px 20px 40px;border-top:1px soli
 @media (max-width:640px){
   .top-in{padding:9px 14px}.wrap{padding:0 14px 44px}.hero{padding:44px 0 26px}
   .btn .lbl{display:none}.btn{padding:7px 10px}
-  .stats{gap:8px}.stat{padding:11px 12px}.stat b{font-size:1.45rem}.grid{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style>
@@ -179,7 +174,6 @@ footer{max-width:1120px;margin:0 auto;padding:26px 20px 40px;border-top:1px soli
     <section class="hero">
       <h1>Javier González Correa</h1>
       <p class="sub">Ciberseguridad IT &amp; OT · Writeups, laboratorios e informes técnicos de análisis forense, seguridad IoT y redes.</p>
-      <div class="stats" id="stats"></div>
     </section>
     <div class="chips" id="chips" role="group" aria-label="Filtrar por categoría"></div>
     <div class="grid" id="cards"></div>
@@ -886,19 +880,6 @@ document.getElementById("themeBtn").onclick=function(){
 
 /* ---- portada ---- */
 function sortList(a,b){if(!a.date&&!b.date)return 0;if(!a.date)return -1;if(!b.date)return 1;return b.date.localeCompare(a.date)}
-function renderStats(){
-  var cats={},tags={};
-  WRITEUPS.forEach(function(w){cats[w.category]=1;w.tags.forEach(function(t){tags[t]=1})});
-  var vals=[[WRITEUPS.length,"informes"],[Object.keys(cats).length,"categorías"],[Object.keys(tags).length,"herramientas y técnicas"]];
-  var box=document.getElementById("stats");box.innerHTML="";
-  vals.forEach(function(v){
-    var d=document.createElement("div");d.className="stat";
-    d.innerHTML='<b>'+(reduce?v[0]:0)+'</b><span>'+v[1]+'</span>';box.appendChild(d);
-    if(!reduce){var el=d.firstChild,t0=null;
-      (function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/900);el.textContent=Math.round(v[0]*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step)})(performance.now?performance.now():0);
-    }
-  });
-}
 var active="Todos";
 function renderList(){
   var cats=["Todos"];
@@ -984,7 +965,7 @@ lb.addEventListener("click",closeLb);
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&lb.classList.contains("open"))closeLb()});
 
 window.addEventListener("hashchange",route);
-renderStats();renderList();route();
+renderList();route();
 </script>
 </body>
 </html>
