@@ -89,8 +89,6 @@ a{color:inherit}
 .ico svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .card h2{margin:0;font-size:1.08rem;line-height:1.35;letter-spacing:-.01em}
 .card p{margin:0;color:var(--muted);font-size:.92rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.tags{display:flex;gap:6px;flex-wrap:wrap}
-.tag{font-family:var(--mono);font-size:.72rem;color:var(--muted);background:color-mix(in srgb,var(--text) 6%,transparent);border:1px solid var(--line);padding:2px 8px;border-radius:7px}
 .more{margin-top:auto;padding-top:4px;font-size:.85rem;color:var(--c);font-weight:600;display:flex;align-items:center;gap:6px}
 .more svg{width:15px;height:15px;transition:transform .2s;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .card:hover .more svg{transform:translateX(4px)}
@@ -927,10 +925,8 @@ function renderList(){
   WRITEUPS.filter(function(w){return active==="Todos"||w.category===active}).sort(sortList).forEach(function(w,i){
     var a=document.createElement("a");a.className="card";a.href="#"+w.id;
     a.style.setProperty("--cd",cat(w.category).c);a.style.setProperty("--cl",cat(w.category).l);a.style.setProperty("--i",i);
-    var shown=w.tags.slice(0,4),extra=w.tags.length-shown.length;
     a.innerHTML='<div class="cat">'+icon(w.category)+'<span>'+esc(w.category)+(w.date?" · "+esc(w.date):"")+'</span></div>'+
       '<h2>'+esc(w.title)+'</h2><p>'+esc(w.summary)+'</p>'+
-      '<div class="tags">'+shown.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+(extra>0?'<span class="tag">+'+extra+'</span>':"")+'</div>'+
       '<span class="more">Leer informe <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>';
     box.appendChild(a)});
 }
@@ -976,8 +972,7 @@ function route(){
     list.classList.add("hidden");view.classList.remove("hidden");
     var art=document.getElementById("article");art.style.setProperty("--cd",cat(w.category).c);art.style.setProperty("--cl",cat(w.category).l);
     art.innerHTML='<div class="a-head"><div class="cat">'+icon(w.category)+
-      '<span>'+esc(w.category)+(w.date?" · "+esc(w.date):"")+'</span></div><h1>'+esc(w.title)+'</h1>'+
-      '<div class="tags">'+w.tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>'}).join("")+'</div></div>'+
+      '<span>'+esc(w.category)+(w.date?" · "+esc(w.date):"")+'</span></div><h1>'+esc(w.title)+'</h1></div>'+
       '<div class="body">'+md(w.content)+'</div>';
     buildToc();document.title=w.title+" · Javier González";
     window.scrollTo(0,0);
