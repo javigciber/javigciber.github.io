@@ -199,6 +199,39 @@ footer{max-width:1120px;margin:0 auto;padding:26px 20px 40px;border-top:1px soli
    Imágenes: una línea sola con ![texto](img/archivo.png) */
 var WRITEUPS = [
 {
+ id:"opnsense-zenarmor-control-aplicaciones", category:"Redes",
+ title:"Firewall NGFW con OPNsense y Zenarmor: control de aplicaciones, horarios y dispositivos",
+ summary:"Comparativa práctica entre filtrado clásico y NGFW con DPI: bloqueo selectivo de YouTube y WhatsApp, programación horaria, aplicación de políticas por categoría de dispositivo y revisión de registros.",
+ tags:["OPNsense","Zenarmor","NGFW","DPI","App Control","Firewall","Time Schedule","Logging"],
+ content:[
+"## Objetivo",
+"Configurar OPNsense junto con Zenarmor para comprobar las posibilidades de un firewall de nueva generación (NGFW) frente al filtrado clásico por IP, puerto y protocolo. La práctica se centra en identificar aplicaciones, aplicar bloqueos selectivos y verificar el resultado mediante pruebas de navegación y registros.",
+"## 1. Firewall clásico frente a NGFW",
+"Primero se trabajó con reglas de firewall tradicionales, basadas en puertos y protocolos. Después se configuró OPNsense con Zenarmor y la inspección profunda de paquetes (DPI) para reconocer aplicaciones concretas. La diferencia se aprecia al poder bloquear una aplicación sin tener que bloquear todo el tráfico HTTPS.",
+"## 2. Bloqueo selectivo de YouTube",
+"En Zenarmor se creó una política llamada **Bloquear YouTube**, habilitada junto a la política predeterminada. Dentro de App Controls se seleccionó YouTube para impedir el acceso a esa aplicación.",
+"![Política de Zenarmor para bloquear YouTube](img/zenarmor-politica-youtube.png)",
+"La comprobación consistió en intentar acceder a YouTube y, a continuación, a Google/Gmail. Con la política activa, YouTube mostró un error de conexión, mientras que la página de acceso de Google/Gmail siguió cargando. Ambas conexiones utilizan HTTPS por el puerto 443, por lo que la prueba permite observar el filtrado por aplicación que ofrece el NGFW.",
+"![Resultado de la prueba: acceso a YouTube bloqueado](img/youtube-bloqueado.png)",
+"## 3. Bloqueo de WhatsApp",
+"Se amplió la política buscando las aplicaciones relacionadas con WhatsApp y bloqueando tres entradas: **WhatsApp**, **WhatsApp File Transfer** y **WhatsApp Web**. De este modo se comprobó el control de distintas funciones asociadas al servicio, no solo de la navegación web.",
+"![Controles de aplicaciones de WhatsApp bloqueados en Zenarmor](img/zenarmor-bloqueo-whatsapp.png)",
+"## 4. Restricción horaria",
+"Se creó una programación (*Time Schedule*) denominada **Clase**, activa de lunes a jueves entre las 16:00 y las 22:00. La política queda condicionada a esa franja: el bloqueo configurado se aplica durante el horario indicado y queda fuera de él.",
+"![Programación horaria Clase: lunes a jueves de 16:00 a 22:00](img/zenarmor-horario-clase.png)",
+"## 5. Aplicación de la política por categoría de dispositivo",
+"En el apartado **Devices** de la política se asignó la categoría **desktop**. Por tanto, la regla se dirige a los equipos clasificados en esa categoría, diferenciándolos de otros tipos de dispositivo, como un móvil. En esta práctica se documentó la selección de una categoría de dispositivo; no se presenta como una regla individual por dirección MAC.",
+"![Categoría desktop asignada a la política](img/zenarmor-categoria-dispositivo.png)",
+"## 6. Registros y estadísticas",
+"Los bloqueos se consultaron en Zenarmor, en **Reports → Blocks**, donde se muestran los motivos, dominios y equipos afectados. También se revisó **Apps Breakdown**, que permite observar cómo se distribuye el tráfico por aplicación.",
+"![Informe de bloqueos de Zenarmor](img/zenarmor-registro-bloqueos.png)",
+"![Estadísticas de tráfico por aplicación en Apps Breakdown](img/zenarmor-apps-breakdown.png)",
+"## Conclusiones",
+"La práctica permitió comprobar que un firewall clásico basado en reglas de red y un NGFW con identificación de aplicaciones ofrecen niveles de control distintos. Con Zenarmor fue posible bloquear YouTube sin impedir el acceso a Google/Gmail, bloquear varias funciones de WhatsApp, limitar la aplicación de una política a un horario y dirigirla a la categoría de dispositivos desktop. Los informes aportaron visibilidad sobre los bloqueos y las aplicaciones detectadas.",
+"La experiencia se realizó como laboratorio práctico con OPNsense y Zenarmor; los resultados descritos corresponden a las pruebas documentadas, no a un despliegue en producción."
+].join("\n")
+},
+{
  id:"laboratorio-enrutado-vlan", date:"2026-05-25", category:"Laboratorios",
  title:"Segmentación de red con VLAN y enrutado entre MikroTik, con prácticas de ataque y detección",
  summary:"Red enrutada y segmentada con dos MikroTik, un switch D-Link, un servidor Fedora, Kali y una Raspberry Pi; incluye explotación, pivoting, mapeo de puertos y detección con Snort.",
